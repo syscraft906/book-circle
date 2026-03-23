@@ -1,12 +1,17 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+COPY prisma ./prisma
+# Copy prisma config if it exists
+COPY prisma.config.ts* ./
+# Skip postinstall (prisma generate) during deps install — we run it in builder
+RUN npm ci --ignore-scripts
 
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Now generate prisma client with schema present
 RUN npx prisma generate
 RUN npm run build
 
