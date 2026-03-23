@@ -2,17 +2,19 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma
-# Copy prisma config if it exists
 COPY prisma.config.ts* ./
-# Skip postinstall (prisma generate) during deps install — we run it in builder
 RUN npm ci --ignore-scripts
 
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Now generate prisma client with schema present
 RUN npx prisma generate
+# Dummy DATABASE_URL satisfies the env check at build time
+# Real URL is injected at runtime via Kubernetes secret
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+ENV NEXTAUTH_URL="https://book-circle.syscraft906.dev"
+ENV NEXTAUTH_SECRET="build-placeholder"
 RUN npm run build
 
 FROM node:20-alpine AS runner
@@ -26,4 +28,5 @@ COPY --from=builder /app/prisma ./prisma
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
+# Real env vars injected here at runtime by Kubernetes
 CMD ["node", "server.js"]
