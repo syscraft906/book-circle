@@ -1020,34 +1020,85 @@ flowchart TD
 
 ---
 
-#### 5. SessionTimer
+#### 5. SessionTimer (Preset Countdown with Overlay)
 
-**Purpose:** Track and display active reading session with start/stop controls.
+**Purpose:** Provide an intentional, commitment-based reading session with preset time selection and immersive countdown experience.
 
 **Anatomy:**
-- Large time display (MM:SS or HH:MM:SS)
-- Start/Stop button
-- Goal progress indicator
-- Pause/resume (optional)
+- **Trigger Button:** "Log Reading" button on home page
+- **Preset Selection Popup:** Modal with time preset options (15/30/45 min)
+- **Countdown Overlay:** Full-screen overlay with large countdown display
+- **Early Stop Confirmation:** Modal for stopping before timer completes
+
+**Components:**
+
+**5a. Log Reading Button**
+- Placement: Home page, prominently displayed
+- Appearance: Primary button style (warm amber)
+- Label: "Log Reading"
+
+**5b. Time Preset Selection Popup**
+- Trigger: Tap "Log Reading" button
+- Options: 15 min, 30 min, 45 min (15-minute increments)
+- Layout: Vertical list or grid of preset buttons
+- Primary action: "Start Logging" button
+- Secondary action: "Cancel" or dismiss
+
+**5c. Full-Screen Countdown Overlay**
+- Display: Large countdown timer (MM:SS format)
+- Position: Center of screen, full-screen modal
+- Visual style: Clean, minimal, focus-mode aesthetic
+- Background: Semi-opaque dark overlay (blocks app interaction)
+- Timer display: Large, readable font (warm color palette)
+- Controls: Small "Stop Early" button (top-right or bottom-center)
+- Book reference: Book title/cover shown (optional, for context)
+
+**5d. Early Stop Confirmation Popup**
+- Trigger: User taps "Stop Early" on countdown overlay
+- Message: "Time not finished yet. Save session anyway?"
+- Elapsed time display: "[X] minutes of [Y] minutes"
+- Options:
+  - "Save Session" (primary button)
+  - "Keep Reading" (secondary button)
+  - "Discard" (tertiary/link)
 
 **States:**
 
 | State | Appearance | Trigger |
 |-------|------------|---------|
-| Ready | "Start Reading" button | Not yet started |
-| Active | Running timer, "Stop" button | Session in progress |
-| Paused | Paused indicator, "Resume" | User paused (future) |
-| Complete | Success checkmark, time logged | Session ended |
-| Goal Met | Celebration indicator | Daily goal achieved |
+| Ready | "Log Reading" button visible | No active session |
+| Preset Selection | Popup with time options | User tapped "Log Reading" |
+| Active Countdown | Full-screen overlay, timer counting down | User selected preset and started |
+| Early Stop Prompt | Confirmation popup over overlay | User tapped "Stop Early" |
+| Auto-Complete | Success animation, session saved | Countdown reached 0:00 |
+| Complete | Overlay dismissed, success toast | Session saved (auto or manual) |
 
 **Behavior:**
-- Works in background (browser backgrounded)
-- Persists across page navigation
-- Auto-saves progress every 30 seconds
+- Works in background (browser/app backgrounded, timer continues)
+- Persists across page navigation (overlay persists or minimizes to indicator)
+- Timer state saved to IndexedDB every 10 seconds
+- Auto-saves when countdown completes (0:00)
+- Blocks app interaction while overlay is active (focus mode)
+
+**Visual Design:**
+- Countdown display: 48-72px font size, warm amber or white
+- Overlay background: rgba(0, 0, 0, 0.85) or warm dark tone
+- Timer animation: Smooth second-by-second countdown
+- Completion animation: Brief success checkmark or confetti (respects reduced motion)
 
 **Accessibility:**
-- `aria-live="polite"` for timer updates
-- Clear button labels for screen readers
+- `aria-live="polite"` for countdown updates (announce every minute, not every second)
+- `role="dialog"` for overlay and popups
+- Focus trap in overlay (prevent background interaction)
+- "Stop Early" button clearly labeled for screen readers
+- Escape key closes confirmation popup (returns to countdown)
+- Screen reader announces: "Reading session: [X] minutes remaining"
+
+**Motion:**
+- Respects `prefers-reduced-motion`
+- Overlay enter: Fade in (200ms) or instant if reduced motion
+- Timer tick: No animation if reduced motion
+- Completion: Static success state if reduced motion
 
 ---
 

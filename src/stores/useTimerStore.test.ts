@@ -17,6 +17,8 @@ describe('useTimerStore', () => {
       startTime: null,
       currentBookId: null,
       currentBookTitle: null,
+      presetDuration: null,
+      mode: 'manual',
       _hasHydrated: true,
     });
   });
@@ -120,5 +122,66 @@ describe('useTimerStore', () => {
     expect(result.isRunning).toBe(true);
     expect(result._hasHydrated).toBe(true);
     expect(result.startTime).toBe(pastTime);
+  });
+
+  describe('Countdown timer (new)', () => {
+    it('start() with presetMinutes sets countdown mode', () => {
+      useTimerStore.getState().start('book-123', 'Test Book', 30);
+
+      const state = useTimerStore.getState();
+      expect(state.isRunning).toBe(true);
+      expect(state.mode).toBe('countdown');
+      expect(state.presetDuration).toBe(30 * 60); // 30 minutes in seconds
+    });
+
+    it('start() without presetMinutes sets manual mode', () => {
+      useTimerStore.getState().start('book-123', 'Test Book');
+
+      const state = useTimerStore.getState();
+      expect(state.isRunning).toBe(true);
+      expect(state.mode).toBe('manual');
+      expect(state.presetDuration).toBeNull();
+    });
+
+    it('getRemainingSeconds() returns remaining time for countdown', () => {
+      const twoSecondsAgo = Date.now() - 2000;
+      useTimerStore.setState({
+        startTime: twoSecondsAgo,
+        presetDuration: 5 * 60, // 5 minutes
+        mode: 'countdown',
+        isRunning: true,
+      });
+
+      const remaining = useTimerStore.getState().getRemainingSeconds();
+      // Should be ~298 seconds (300 - 2)
+      expect(remaining).toBeGreaterThanOrEqual(297);
+      expect(remaining).toBeLessThanOrEqual(299);
+    });
+
+    it('getRemainingSeconds() returns 0 for manual mode', () => {
+      useTimerStore.getState().start('book-1', 'Test');
+      expect(useTimerStore.getState().getRemainingSeconds()).toBe(0);
+    });
+
+    it('getRemainingSeconds() returns 0 when countdown expired', () => {
+      const sixMinutesAgo = Date.now() - 6 * 60 * 1000;
+      useTimerStore.setState({
+        startTime: sixMinutesAgo,
+        presetDuration: 5 * 60, // 5 minutes
+        mode: 'countdown',
+        isRunning: true,
+      });
+
+      expect(useTimerStore.getState().getRemainingSeconds()).toBe(0);
+    });
+
+    it('reset() clears presetDuration and mode', () => {
+      useTimerStore.getState().start('book-1', 'Test', 15);
+      useTimerStore.getState().reset();
+
+      const state = useTimerStore.getState();
+      expect(state.presetDuration).toBeNull();
+      expect(state.mode).toBe('manual');
+    });
   });
 });

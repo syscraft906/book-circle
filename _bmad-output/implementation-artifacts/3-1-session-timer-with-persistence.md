@@ -1,106 +1,105 @@
 # Story 3.1: Session Timer with Persistence
 
-Status: done
+Status: ready-for-dev
 
-<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+<!-- Note: Story updated 2026-03-01 - Changed from manual timer to preset countdown overlay design per sprint change proposal -->
 
 ## Story
 
 As a **user**,
-I want **a timer that tracks my reading session**,
-So that **I can accurately log how long I read**.
+I want **a timer that tracks my reading session with preset time commitments**,
+So that **I can set intentional reading goals and log how long I read**.
 
 ## Acceptance Criteria
 
-1. **Given** I am on a book detail page for a book I'm "Currently Reading" **When** I view the page **Then** I see a "Start Reading" button prominently displayed
+1. **Given** I am on the home page **When** I view the page **Then** I see a "Log Reading" button prominently displayed
 
-2. **Given** I tap "Start Reading" **When** the timer starts **Then** I see a running timer display (MM:SS, or HH:MM:SS after 1 hour) **And** the button changes to "Stop Reading" **And** the timer state is persisted to IndexedDB via Zustand **And** the book ID is stored with the timer
+2. **Given** I tap "Log Reading" **When** the time selection popup appears **Then** I see preset time options: 15 min, 30 min, 45 min **And** the options are in 15-minute increments **And** I can select one option
 
-3. **Given** I have an active timer **When** I navigate to another page in the app **Then** the timer continues running in the background **And** I see a persistent indicator showing active session (e.g., in header/app shell)
+3. **Given** I select a time preset (e.g., 30 minutes) **When** I tap "Start Logging" **Then** a full-screen countdown overlay appears **And** the countdown shows remaining time (MM:SS format) **And** the timer state is persisted to IndexedDB via Zustand **And** the book ID and preset duration are stored with the timer **And** the overlay blocks other app interactions (focus mode)
 
-4. **Given** I have an active timer **When** I close the browser or app **Then** the timer state is preserved in IndexedDB **And** when I return, the timer resumes from where it was **And** elapsed time is calculated correctly from start timestamp
+4. **Given** the countdown timer is running **When** I navigate away or close the app **Then** the timer state is preserved in IndexedDB **And** when I return, the countdown resumes from where it was **And** remaining time is calculated correctly from start timestamp and preset duration
 
-5. **Given** I have an active timer for Book A **When** I try to start a timer for Book B **Then** I see a prompt: "You have an active session for [Book A]. End it first?" **And** I can end the current session or cancel
+5. **Given** the countdown reaches 0:00 **When** the timer completes **Then** the session is automatically saved (see Story 3.2) **And** I see a success message **And** the overlay dismisses **And** the timer state is cleared
+
+6. **Given** the countdown is running **When** I want to stop early **Then** I see a dismiss/exit button on the overlay (e.g., "X" or "Stop Early") **And** tapping it shows a confirmation popup (see Story 3.2 for early save flow)
+
+7. **Given** I have an active timer for Book A **When** I try to start a new timer for Book B **Then** I see a prompt: "You have an active session for [Book A]. End it first?" **And** I can end the current session or cancel
 
 ## Tasks / Subtasks
 
-- [x] **Task 1: Create idb-storage adapter for Zustand persistence** (AC: #2, #4)
-  - [x]Create `src/lib/idb-storage.ts`
-  - [x]Implement `StateStorage` interface from `zustand/middleware` wrapping `idb-keyval` `get`/`set`/`del`
-  - [x]Add SSR safety guard (`typeof indexedDB === 'undefined'` checks)
-  - [x]Export `idbStorage` for use by any Zustand store
-  - [x]Create co-located test file `src/lib/idb-storage.test.ts`
+- [x] **Task 1: Update `useTimerStore` for countdown timer** (AC: #3, #4, #5)
+  - [x] Update `src/stores/useTimerStore.ts`
+  - [x] Add new state: `presetDuration` (number in seconds | null), `mode` ('countdown' | 'manual')
+  - [x] Update `start()` to accept `presetMinutes` parameter and store both `startTime` and `presetDuration`
+  - [x] Add new computed: `getRemainingSeconds()` (calculates: presetDuration - elapsed)
+  - [x] Keep existing `getElapsedSeconds()` for compatibility
+  - [x] Update persistence to include `presetDuration` and `mode`
+  - [x] Update co-located test file `src/stores/useTimerStore.test.ts`
 
-- [x] **Task 2: Create `useTimerStore` Zustand store** (AC: #2, #3, #4, #5)
-  - [x]Create `src/stores/useTimerStore.ts`
-  - [x]State: `isRunning`, `startTime` (Unix timestamp | null), `currentBookId` (string | null), `currentBookTitle` (string | null)
-  - [x]Actions: `start(bookId, bookTitle)`, `stop()`, `reset()`
-  - [x]Computed: `getElapsedSeconds()` (calculates from `Date.now() - startTime`)
-  - [x]Use `persist` middleware with `createJSONStorage(() => idbStorage)`
-  - [x]Use `partialize` to persist only `startTime`, `currentBookId`, `currentBookTitle` — do NOT persist `isRunning`
-  - [x]On rehydration: if `startTime` is not null, set `isRunning = true` (resume timer after browser close)
-  - [x]Add `_hasHydrated` flag with `onRehydrateStorage` callback
-  - [x]Store name: `'timer-store'`
-  - [x]Update `src/stores/index.ts` to export the store
-  - [x]Create co-located test file `src/stores/useTimerStore.test.ts`
+- [ ] **Task 2: Create preset time selection popup component** (AC: #2)
+  - [ ] Create `src/components/features/sessions/TimePresetDialog.tsx` as `'use client'` component
+  - [ ] Use shadcn `Dialog` component for the popup
+  - [ ] Display three preset buttons: "15 min", "30 min", "45 min"
+  - [ ] Each button calls `onSelectPreset(minutes)` callback
+  - [ ] Include "Cancel" option to dismiss dialog
+  - [ ] Styling: warm amber for selected/hover states, 44px touch targets
+  - [ ] Create co-located test file `TimePresetDialog.test.tsx`
 
-- [x] **Task 3: Create `useTimerInterval` custom hook** (AC: #2, #3)
-  - [x]Create `src/hooks/useTimerInterval.ts`
-  - [x]Use `useEffect` with `setInterval` (1 second) when `isRunning` is true
-  - [x]Force re-render every second to recalculate `getElapsedSeconds()` display
-  - [x]Properly clean up interval on unmount and when `isRunning` changes
-  - [x]Export from `src/hooks/index.ts`
+- [ ] **Task 3: Create full-screen countdown overlay component** (AC: #3, #4, #6)
+  - [ ] Create `src/components/features/sessions/CountdownOverlay.tsx` as `'use client'` component
+  - [ ] Full-screen modal with dark semi-opaque background (rgba(0,0,0,0.85))
+  - [ ] Display large countdown timer in MM:SS format (48-72px font size)
+  - [ ] Show current book title/cover for context
+  - [ ] Include "Stop Early" button (top-right or bottom-center)
+  - [ ] Block app interactions while active (modal behavior)
+  - [ ] Use Framer Motion for overlay enter/exit animations (respect `prefers-reduced-motion`)
+  - [ ] Accessibility: `aria-live="polite"` for minute updates, `role="dialog"`, focus trap
+  - [ ] Create co-located test file `CountdownOverlay.test.tsx`
 
-- [x] **Task 4: Create `SessionTimer` component** (AC: #1, #2, #4, #5)
-  - [x]Create `src/components/features/sessions/SessionTimer.tsx` as `'use client'` component
-  - [x]Props: `bookId: string`, `bookTitle: string`, `bookStatus: ReadingStatus`
-  - [x]Show "Start Reading" button when no active timer (only for CURRENTLY_READING books)
-  - [x]Show running timer display (MM:SS or HH:MM:SS) + "Stop Reading" button when active
-  - [x]Show hydration skeleton until `_hasHydrated` is true
-  - [x]When starting: check if another book's timer is active → show conflict dialog (AC #5)
-  - [x]Use `AlertDialog` (shadcn) for the conflict prompt: "You have an active session for [Book A]. End it first?"
-  - [x]Timer display uses Framer Motion for gentle number transitions (respects `prefers-reduced-motion`)
-  - [x]Accessibility: `aria-live="polite"` for timer updates, clear button labels
-  - [x]Minimum 44px touch targets on Start/Stop buttons
-  - [x]Create co-located test file `src/components/features/sessions/SessionTimer.test.tsx`
-  - [x]Create `src/components/features/sessions/index.ts` barrel export
-  - [x]Create `src/components/features/sessions/types.ts` for session-related types
+- [ ] **Task 4: Create "Log Reading" button on home page** (AC: #1, #2)
+  - [ ] Update `src/app/(main)/home/page.tsx`
+  - [ ] Add prominent "Log Reading" button (primary style, warm amber)
+  - [ ] Clicking opens `TimePresetDialog`
+  - [ ] After preset selection, opens `CountdownOverlay` with selected duration
+  - [ ] Check for active session conflict before starting (AC #7)
+  - [ ] Use existing `AlertDialog` pattern for conflict prompt
 
-- [x] **Task 5: Create `ActiveSessionIndicator` component** (AC: #3)
-  - [x]Create `src/components/features/sessions/ActiveSessionIndicator.tsx` as `'use client'` component
-  - [x]Shows compact timer + book title when a session is active
-  - [x]Displayed in the app shell (visible across all pages)
-  - [x]Clicking/tapping navigates to the book's detail page
-  - [x]Show nothing when no active session
-  - [x]Show hydration skeleton briefly until store hydrated
-  - [x]Accessibility: `aria-label="Active reading session: [book title], [elapsed time]"`
-  - [x]Create co-located test file `ActiveSessionIndicator.test.tsx`
+- [ ] **Task 5: Implement countdown completion auto-save** (AC: #5)
+  - [ ] In `CountdownOverlay`, monitor when `getRemainingSeconds()` reaches 0
+  - [ ] Show success message when timer completes
+  - [ ] Call Story 3.2's save session action (will be created in Story 3.2)
+  - [ ] Dismiss overlay and clear timer state
+  - [ ] For now, use placeholder/mock for save action until Story 3.2 is complete
 
-- [x] **Task 6: Integrate `SessionTimer` into BookDetail page** (AC: #1, #2)
-  - [x]Update `src/components/features/books/BookDetailActions.tsx`
-  - [x]Replace the disabled "Log Session" placeholder button with `<SessionTimer>` component
-  - [x]Pass `bookId`, `bookTitle`, and `bookStatus` props from BookDetail
-  - [x]Only render SessionTimer when book is in user's library with status CURRENTLY_READING
-  - [x]Keep the disabled "Update Progress" button as-is (future story)
+- [ ] **Task 6: Implement early-stop confirmation** (AC: #6)
+  - [ ] Create "Stop Early" confirmation dialog component
+  - [ ] Show message: "Time not finished yet. Save session anyway?"
+  - [ ] Display elapsed time vs preset time (e.g., "12 minutes of 30 minutes")
+  - [ ] Three options: "Save Session" (primary), "Keep Reading" (secondary), "Discard" (tertiary)
+  - [ ] "Keep Reading" closes dialog and returns to countdown
+  - [ ] "Save Session" and "Discard" handled by Story 3.2
+  - [ ] Create co-located test file for confirmation dialog
 
-- [x] **Task 7: Integrate `ActiveSessionIndicator` into AppShell** (AC: #3)
-  - [x]Update `src/components/layout/AppShell.tsx`
-  - [x]Add `<ActiveSessionIndicator />` in the app shell layout (above page content, below header area)
-  - [x]Position: fixed/sticky banner that doesn't interfere with navigation
-  - [x]Should appear on all protected routes when a timer is running
+- [ ] **Task 7: Remove old SessionTimer from BookDetailActions** (cleanup)
+  - [ ] Update `src/components/features/books/BookDetailActions.tsx`
+  - [ ] Remove the old SessionTimer integration (no longer on book detail page)
+  - [ ] Restore or keep disabled "Log Session" placeholder button if needed
+  - [ ] Update related tests
 
-- [x] **Task 8: Write integration tests** (AC: all)
-  - [x]Test: "Start Reading" button appears on CURRENTLY_READING book detail page
-  - [x]Test: Button does NOT appear for WANT_TO_READ or FINISHED books
-  - [x]Test: Clicking "Start Reading" starts the timer display
-  - [x]Test: Timer displays elapsed time in MM:SS format
-  - [x]Test: Clicking "Stop Reading" stops the timer
-  - [x]Test: Starting timer for Book B while Book A is active shows conflict dialog
-  - [x]Test: Conflict dialog allows ending current session or canceling
-  - [x]Test: ActiveSessionIndicator appears when timer is running
-  - [x]Test: ActiveSessionIndicator disappears when timer is stopped
-  - [x]Test: ActiveSessionIndicator links to the active book's detail page
-  - [x]Test: Timer resumes correctly from persisted startTime on rehydration
+- [ ] **Task 8: Write integration tests** (AC: all)
+  - [ ] Test: "Log Reading" button appears on home page
+  - [ ] Test: Clicking "Log Reading" opens time preset dialog
+  - [ ] Test: Selecting a preset (e.g., 30 min) opens countdown overlay
+  - [ ] Test: Countdown displays remaining time in MM:SS format
+  - [ ] Test: Countdown decrements every second
+  - [ ] Test: "Stop Early" button shows confirmation dialog
+  - [ ] Test: Confirmation dialog has three options
+  - [ ] Test: "Keep Reading" closes dialog and resumes countdown
+  - [ ] Test: Timer state persists across navigation
+  - [ ] Test: Timer state persists across browser close/reopen
+  - [ ] Test: Starting new timer while one is active shows conflict dialog
+  - [ ] Test: Auto-save triggers when countdown reaches 0:00
 
 ## Dev Notes
 

@@ -8,30 +8,44 @@ So that **I can accurately log how long I read**.
 
 **Acceptance Criteria:**
 
-**Given** I am on a book detail page for a book I'm "Currently Reading"
+**Given** I am on the home page
 **When** I view the page
-**Then** I see a "Start Reading" button prominently displayed
+**Then** I see a "Log Reading" button prominently displayed
 
-**Given** I tap "Start Reading"
-**When** the timer starts
-**Then** I see a running timer display (MM:SS, or HH:MM:SS after 1 hour)
-**And** the button changes to "Stop Reading"
+**Given** I tap "Log Reading"
+**When** the time selection popup appears
+**Then** I see preset time options: 15 min, 30 min, 45 min
+**And** the options are in 15-minute increments
+**And** I can select one option
+
+**Given** I select a time preset (e.g., 30 minutes)
+**When** I tap "Start Logging"
+**Then** a full-screen countdown overlay appears
+**And** the countdown shows remaining time (MM:SS format)
 **And** the timer state is persisted to IndexedDB via Zustand
-**And** the book ID is stored with the timer
+**And** the book ID and preset duration are stored with the timer
+**And** the overlay blocks other app interactions (focus mode)
 
-**Given** I have an active timer
-**When** I navigate to another page in the app
-**Then** the timer continues running in the background
-**And** I see a persistent indicator showing active session (e.g., in header)
-
-**Given** I have an active timer
-**When** I close the browser or app
+**Given** the countdown timer is running
+**When** I navigate away or close the app
 **Then** the timer state is preserved in IndexedDB
-**And** when I return, the timer resumes from where it was
-**And** elapsed time is calculated correctly from start timestamp
+**And** when I return, the countdown resumes from where it was
+**And** remaining time is calculated correctly from start timestamp and preset duration
+
+**Given** the countdown reaches 0:00
+**When** the timer completes
+**Then** the session is automatically saved (see Story 3.2)
+**And** I see a success message
+**And** the overlay dismisses
+**And** the timer state is cleared
+
+**Given** the countdown is running
+**When** I want to stop early
+**Then** I see a dismiss/exit button on the overlay (e.g., "X" or "Stop Early")
+**And** tapping it shows a confirmation popup (see Story 3.2 for early save flow)
 
 **Given** I have an active timer for Book A
-**When** I try to start a timer for Book B
+**When** I try to start a new timer for Book B
 **Then** I see a prompt: "You have an active session for [Book A]. End it first?"
 **And** I can end the current session or cancel
 
@@ -47,25 +61,44 @@ So that **it counts toward my streak and I can track my progress**.
 
 **Acceptance Criteria:**
 
-**Given** I have stopped the timer
-**When** the session summary appears
-**Then** I see: book title, session duration, current date
-**And** I see a "Save Session" button
-**And** I see a "Discard" option (secondary)
-
-**Given** I tap "Save Session"
-**When** the session is saved
+**Given** the countdown timer completes (reaches 0:00)
+**When** the session auto-saves
 **Then** a ReadingSession record is created with: userId, bookId, duration, startedAt, endedAt
 **And** the book's progress is optionally updated (prompt: "Update progress?")
 **And** my daily reading total is recalculated
-**And** I see a success toast
+**And** I see a success toast: "Session logged: [X] minutes"
 **And** the timer state is cleared
+**And** the overlay dismisses
 
-**Given** I tap "Discard"
-**When** I confirm the discard
+**Given** I tap "Stop Early" on the countdown overlay
+**When** the confirmation popup appears
+**Then** I see the message: "Time not finished yet. Save session anyway?"
+**And** I see the elapsed time so far (e.g., "12 minutes of 30 minutes")
+**And** I see a "Save Session" button (primary)
+**And** I see a "Keep Reading" button (secondary)
+**And** I see a "Discard" option (tertiary/link)
+
+**Given** I tap "Save Session" on the early stop confirmation
+**When** the session is saved
+**Then** a ReadingSession record is created with actual elapsed time (not preset time)
+**And** the book's progress is optionally updated (prompt: "Update progress?")
+**And** my daily reading total is recalculated
+**And** I see a success toast: "Session saved: [X] minutes"
+**And** the timer state is cleared
+**And** the overlay and popup dismiss
+
+**Given** I tap "Keep Reading" on the early stop confirmation
+**When** the popup closes
+**Then** the countdown overlay remains active
+**And** the timer continues from where it was
+**And** I can continue reading
+
+**Given** I tap "Discard" on the early stop confirmation
+**When** I confirm discard
 **Then** the session is not saved
 **And** the timer state is cleared
-**And** I return to the book detail page
+**And** the overlay and popup dismiss
+**And** I return to the home page
 
 **Given** I save a session while offline
 **When** the session is saved locally
@@ -73,10 +106,11 @@ So that **it counts toward my streak and I can track my progress**.
 **And** I see a toast: "Session saved offline. Will sync when connected."
 **And** the session syncs automatically when back online
 
-**Given** I log a session of less than 1 minute
+**Given** I stop early after less than 1 minute
 **When** I try to save
 **Then** I see a message: "Sessions under 1 minute aren't saved. Keep reading!"
 **And** the session is discarded
+**And** the overlay dismisses
 
 *Creates: ReadingSession table (id, userId, bookId, duration, startedAt, endedAt, syncedAt)*
 

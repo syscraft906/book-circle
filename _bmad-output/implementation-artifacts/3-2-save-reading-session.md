@@ -1,80 +1,91 @@
 # Story 3.2: Save Reading Session
 
-Status: done
+Status: ready-for-dev
+
+<!-- Note: Story updated 2026-03-01 - Changed to support countdown timer auto-save and early-stop confirmation per sprint change proposal -->
 
 ## Story
 
 As a **user**,
-I want **to save my reading session after stopping the timer**,
+I want **to save my reading session when the countdown completes or when I stop early**,
 so that **it counts toward my streak and I can track my reading progress**.
 
 ## Acceptance Criteria
 
-1. **Session Summary Display:** Given I have stopped the timer, When the session summary appears, Then I see: book title, session duration, current date, a "Save Session" button, and a "Discard" option (secondary).
+1. **Auto-Save on Countdown Completion:** Given the countdown timer completes (reaches 0:00), When the session auto-saves, Then a ReadingSession record is created with: userId, bookId, duration, startedAt, endedAt, And the book's progress is optionally updated (prompt: "Update progress?"), And my daily reading total is recalculated, And I see a success toast: "Session logged: [X] minutes", And the timer state is cleared, And the overlay dismisses.
 
-2. **Save Session:** Given I tap "Save Session", When the session is saved, Then a ReadingSession record is created with: userId, bookId, duration, startedAt, endedAt, And the book's progress is optionally updated (prompt: "Update progress?"), And my daily reading total is recalculated, And I see a success toast, And the timer state is cleared.
+2. **Early Stop Confirmation Display:** Given I tap "Stop Early" on the countdown overlay, When the confirmation popup appears, Then I see the message: "Time not finished yet. Save session anyway?", And I see the elapsed time so far (e.g., "12 minutes of 30 minutes"), And I see a "Save Session" button (primary), And I see a "Keep Reading" button (secondary), And I see a "Discard" option (tertiary/link).
 
-3. **Discard Session:** Given I tap "Discard", When I confirm the discard, Then the session is not saved, And the timer state is cleared, And I return to the book detail page.
+3. **Save Early Session:** Given I tap "Save Session" on the early stop confirmation, When the session is saved, Then a ReadingSession record is created with actual elapsed time (not preset time), And the book's progress is optionally updated (prompt: "Update progress?"), And my daily reading total is recalculated, And I see a success toast: "Session saved: [X] minutes", And the timer state is cleared, And the overlay and popup dismiss.
 
-4. **Offline Save:** Given I save a session while offline, When the session is saved locally, Then it is queued in useOfflineStore, And I see a toast: "Session saved offline. Will sync when connected.", And the session syncs automatically when back online.
+4. **Keep Reading:** Given I tap "Keep Reading" on the early stop confirmation, When the popup closes, Then the countdown overlay remains active, And the timer continues from where it was, And I can continue reading.
 
-5. **Minimum Duration:** Given I log a session of less than 1 minute, When I try to save, Then I see a message: "Sessions under 1 minute aren't saved. Keep reading!", And the session is discarded.
+5. **Discard Session:** Given I tap "Discard" on the early stop confirmation, When I confirm discard, Then the session is not saved, And the timer state is cleared, And the overlay and popup dismiss, And I return to the home page.
+
+6. **Offline Save:** Given I save a session while offline, When the session is saved locally, Then it is queued in useOfflineStore, And I see a toast: "Session saved offline. Will sync when connected.", And the session syncs automatically when back online.
+
+7. **Minimum Duration:** Given I stop early after less than 1 minute, When I try to save, Then I see a message: "Sessions under 1 minute aren't saved. Keep reading!", And the session is discarded, And the overlay dismisses.
 
 ## Tasks / Subtasks
 
-- [x] Task 1: Create ReadingSession Prisma model (AC: #2)
-  - [x] 1.1 Add `ReadingSession` model to `prisma/schema.prisma` with fields: id, userId, bookId, duration (Int, seconds), startedAt (DateTime), endedAt (DateTime), syncedAt (DateTime?), createdAt, updatedAt
-  - [x] 1.2 Add relation from ReadingSession to User (onDelete: Cascade) and Book (onDelete: Cascade)
-  - [x] 1.3 Add indexes on userId, bookId, and composite [userId, bookId]
-  - [x] 1.4 Add `@@map("reading_sessions")` for snake_case table name
-  - [x] 1.5 Run `npx prisma generate` and `npx prisma db push`
-  - [x] 1.6 Export `ReadingSession` type from `src/types/database.ts`
+- [ ] **Task 1: Implement auto-save on countdown completion** (AC: #1)
+  - [ ] In `CountdownOverlay` (Story 3.1), detect when countdown reaches 0:00
+  - [ ] Call `saveReadingSession` action with full preset duration
+  - [ ] Show success toast: "Session logged: [X] minutes"
+  - [ ] Dismiss overlay and reset timer state
+  - [ ] Handle offline scenario (queue to useOfflineStore)
+  - [ ] Handle errors gracefully with error toast
 
-- [x] Task 2: Create saveReadingSession server action (AC: #2, #5)
-  - [x] 2.1 Create `src/actions/sessions/saveReadingSession.ts` following ActionResult pattern
-  - [x] 2.2 Define Zod schema: `{ bookId: string, duration: number (>= 60 seconds), startedAt: string (ISO), endedAt: string (ISO) }`
-  - [x] 2.3 Validate duration >= 60 seconds, return error for < 60s
-  - [x] 2.4 Authenticate via `auth.api.getSession({ headers: await headers() })`
-  - [x] 2.5 Verify user has this book in library (query UserBook where userId + bookId, deletedAt is null)
-  - [x] 2.6 Create ReadingSession record via `prisma.readingSession.create()`
-  - [x] 2.7 Return `ActionResult<ReadingSession>`
-  - [x] 2.8 Create `src/actions/sessions/types.ts` with session-specific types if needed, or reuse `ActionResult` from `src/actions/books/types.ts`
-  - [x] 2.9 Create `src/actions/sessions/index.ts` barrel export
+- [ ] **Task 2: Create early-stop confirmation dialog** (AC: #2, #3, #4, #5)
+  - [ ] Create `src/components/features/sessions/EarlyStopConfirmation.tsx` as client component
+  - [ ] Use shadcn `AlertDialog` for the confirmation popup
+  - [ ] Display message: "Time not finished yet. Save session anyway?"
+  - [ ] Show elapsed vs preset time: "[X] minutes of [Y] minutes"
+  - [ ] Three buttons: "Save Session" (primary), "Keep Reading" (secondary), "Discard" (link)
+  - [ ] "Save Session": calls saveReadingSession with actual elapsed time, closes dialog and overlay
+  - [ ] "Keep Reading": closes dialog only, returns to countdown overlay
+  - [ ] "Discard": closes dialog and overlay, resets timer state
+  - [ ] Handle < 60s edge case: show error message instead of save option
+  - [ ] Create co-located test file `EarlyStopConfirmation.test.tsx`
 
-- [x] Task 3: Create SessionSummary component (AC: #1, #2, #3, #5)
-  - [x] 3.1 Create `src/components/features/sessions/SessionSummary.tsx` as client component
-  - [x] 3.2 Display: book title, formatted duration, date, "Save Session" (primary Button) and "Discard" (secondary/ghost Button)
-  - [x] 3.3 On "Save Session": call `saveReadingSession` action, show loading state, toast success/error, call `useTimerStore.reset()`
-  - [x] 3.4 On "Discard": show AlertDialog confirmation, then call `useTimerStore.reset()`
-  - [x] 3.5 Handle < 60s duration: show info message "Sessions under 1 minute aren't saved. Keep reading!", auto-discard with timer reset
-  - [x] 3.6 Add accessible aria attributes and minimum 44px touch targets
+- [ ] **Task 3: Integrate early-stop confirmation into CountdownOverlay** (AC: #2, #6)
+  - [ ] In `CountdownOverlay`, add "Stop Early" button (from Story 3.1)
+  - [ ] On "Stop Early" click, show `EarlyStopConfirmation` dialog
+  - [ ] Pass elapsed time, preset time, bookId, bookTitle to dialog
+  - [ ] Handle dialog callbacks (save/keep reading/discard)
+  - [ ] Update tests to cover early-stop flow
 
-- [x] Task 4: Integrate SessionSummary into SessionTimer stop flow (AC: #1, #2, #3)
-  - [x] 4.1 Modify `SessionTimer.tsx`: after stop button press, show SessionSummary instead of immediately resetting
-  - [x] 4.2 Pass bookId, bookTitle, duration (from getElapsedSeconds), startTime to SessionSummary
-  - [x] 4.3 Calculate endedAt as `new Date().toISOString()` at stop time
-  - [x] 4.4 SessionSummary handles save/discard, then signals completion back to SessionTimer
+- [ ] **Task 4: Update saveReadingSession action for countdown timer** (AC: #1, #3, #7)
+  - [ ] Review existing `src/actions/sessions/saveReadingSession.ts`
+  - [ ] Ensure it handles both full preset duration and early-stop partial duration
+  - [ ] Maintain validation: duration >= 60 seconds
+  - [ ] Return appropriate error for < 60s sessions
+  - [ ] Update tests to cover countdown completion and early-stop scenarios
 
-- [x] Task 5: Create useOfflineStore for offline session queuing (AC: #4)
-  - [x] 5.1 Create `src/stores/useOfflineStore.ts` Zustand store with IndexedDB persistence
-  - [x] 5.2 State: `pendingSessions: Array<{ bookId, duration, startedAt, endedAt }>`, actions: `queueSession`, `removeSession`, `getPendingSessions`
-  - [x] 5.3 Use same `idbStorage` adapter from `src/lib/idb-storage.ts`
-  - [x] 5.4 Storage key: `'offline-store'`
-  - [x] 5.5 Export from `src/stores/index.ts`
+- [ ] **Task 5: Implement "Update progress?" prompt** (AC: #1, #3)
+  - [ ] After successful session save, show optional dialog: "Update progress?"
+  - [ ] Allow user to update book reading progress (percentage or pages)
+  - [ ] This may integrate with future story for progress tracking
+  - [ ] For now, show the prompt but make it dismissible/optional
 
-- [x] Task 6: Implement offline save and sync logic (AC: #4)
-  - [x] 6.1 In SessionSummary: detect offline via `navigator.onLine`
-  - [x] 6.2 If offline: queue to useOfflineStore, show toast "Session saved offline. Will sync when connected."
-  - [x] 6.3 Create `src/hooks/useOfflineSync.ts` hook: listen for `online` event, attempt to sync queued sessions, remove from queue on success
-  - [x] 6.4 Mount useOfflineSync in AppShell or root layout so it runs app-wide
-  - [x] 6.5 On sync success: show toast "Offline sessions synced!"
+- [ ] **Task 6: Update useOfflineStore integration** (AC: #6)
+  - [ ] Ensure offline detection works in both auto-save and early-stop scenarios
+  - [ ] Queue sessions to useOfflineStore when offline
+  - [ ] Show toast: "Session saved offline. Will sync when connected."
+  - [ ] Test offline sync when connection restored
 
-- [x] Task 7: Write tests (All AC)
-  - [x] 7.1 Unit tests for `saveReadingSession` action (mock prisma, auth): test validation, auth check, < 60s rejection, successful save, book not in library error
-  - [x] 7.2 Component tests for `SessionSummary`: test rendering of session details, save flow with success toast, discard flow with confirmation dialog, < 60s auto-discard message, loading states
-  - [x] 7.3 Integration tests for stop → summary → save flow: test SessionTimer stop triggers SessionSummary, save calls action and resets timer, discard resets timer
-  - [x] 7.4 Unit tests for `useOfflineStore`: test queue/remove/get operations
-  - [x] 7.5 Tests for offline detection and queueing behavior
+- [ ] **Task 7: Write integration tests** (All AC)
+  - [ ] Test: Countdown reaches 0:00 triggers auto-save
+  - [ ] Test: Auto-save creates ReadingSession with full preset duration
+  - [ ] Test: Auto-save shows success toast and dismisses overlay
+  - [ ] Test: "Stop Early" button shows confirmation dialog
+  - [ ] Test: Confirmation dialog displays elapsed vs preset time
+  - [ ] Test: "Save Session" on dialog saves with actual elapsed time
+  - [ ] Test: "Keep Reading" closes dialog and resumes countdown
+  - [ ] Test: "Discard" closes dialog and overlay without saving
+  - [ ] Test: < 60s early stop shows error message
+  - [ ] Test: Offline save queues to useOfflineStore
+  - [ ] Test: Online event triggers sync of queued sessions
 
 ## Dev Notes
 
