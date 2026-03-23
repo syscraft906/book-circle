@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: book-circle
+  namespace: book-circle
+  labels:
+    app: book-circle
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: book-circle
+  template:
+    metadata:
+      labels:
+        app: book-circle
+      annotations:
+        co.elastic.logs/enabled: "true"
+        co.elastic.logs/json.keys_under_root: "true"
+    spec:
+      containers:
+        - name: book-circle
+          image: ghcr.io/syscraft906/book-circle:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: book-circle-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: book-circle-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1

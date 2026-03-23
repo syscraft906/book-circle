@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: book-circle-config
+  namespace: book-circle
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  NEXTAUTH_URL: "https://book-circle.syscraft906.dev"

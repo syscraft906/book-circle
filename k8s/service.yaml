@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: book-circle
+  namespace: book-circle
+spec:
+  selector:
+    app: book-circle
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
