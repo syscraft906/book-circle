@@ -18,20 +18,16 @@ spec:
         co.elastic.logs/enabled: "true"
         co.elastic.logs/json.keys_under_root: "true"
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: book-circle
-          image: ghcr.io/syscraft906/book-circle:latest
+          image: nginxdemos/hello:latest    # placeholder — CI will replace with ghcr.io/syscraft906/book-circle:<sha>
           ports:
-            - containerPort: 3000
+            - containerPort: 80
           envFrom:
             - configMapRef:
                 name: book-circle-config
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: book-circle-secrets
-                  key: DATABASE_URL
           resources:
             requests:
               memory: "256Mi"
@@ -42,8 +38,8 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 3000
-            initialDelaySeconds: 15
+              port: 80
+            initialDelaySeconds: 10
             periodSeconds: 10
   strategy:
     type: RollingUpdate
